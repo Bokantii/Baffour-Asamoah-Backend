@@ -4,9 +4,9 @@ const dotenv = require("dotenv");
 const contactRoutes = require("./routes/contact");
 dotenv.config();
 const app = express();
-const RESEND_API_KEY = "re_285NYh5M_HjDeyEwCtjGCCQFyzGUsg71i";
+
 app.use(cors());
 app.use(express.json());
 app.use("/api/contact", contactRoutes);
-const PORT = process.env.port || 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`app is running on port ${PORT}`));
