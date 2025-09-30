@@ -9,7 +9,7 @@ exports.sendContactMessage = async (req, res) => {
   try {
     const response = await resend.emails.send({
       from: 'New Lead!!!😍😍<onboarding@resend.dev>',  
-      to: 'jtemenu@gmail.com',                          
+      to: process.env.CONTACT_RECEIVER,                          
       subject: `New message from ${firstName} ${lastName}`,
       html: `
         <p><strong>From:</strong> ${firstName} ${lastName} (${email})</p>
