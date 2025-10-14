@@ -1,69 +1,95 @@
-// const { Resend } = require('resend');
-// const dotenv = require('dotenv');
-// dotenv.config();
-
-// const resend = new Resend(process.env.RESEND_API_KEY);
-// exports.sendContactMessage = async (req, res) => {
-//   const { firstName, lastName, email, message } = req.body;
-
-//   try {
-//     const response = await resend.emails.send({
-//       from: 'New Lead!!!😍😍<onboarding@resend.dev>',  
-//       to: process.env.CONTACT_RECEIVER,                          
-//       subject: `New message from ${firstName} ${lastName}`,
-//       html: `
-//         <p><strong>From:</strong> ${firstName} ${lastName} (${email})</p>
-//         <p><strong>Message:</strong></p>
-//         <p>${message}</p>
-//       `,
-//     });
-      
-
-//     res.status(200).json({ message: 'Message sent successfully', response });
-//   } catch (error) {
-//     console.error('❌ Error sending email:', error);
-//     res.status(500).json({ message: 'Failed to send email', error: error.message });
-//   }
-// };
-
-
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const dotenv = require("dotenv");
 dotenv.config();
 
-// 1️⃣ Configure the transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail", // Works best with Gmail App Password
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-// 2️⃣ Define the sendContactMessage function
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 exports.sendContactMessage = async (req, res) => {
   const { firstName, lastName, email, message } = req.body;
 
+  // Validate environment variables
+  const envVars = {
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    CONTACT_RECEIVER: process.env.CONTACT_RECEIVER,
+    REPLY_TO_EMAIL: process.env.REPLY_TO_EMAIL,
+  };
+
+  for (const [key, value] of Object.entries(envVars)) {
+    if (!value) {
+      return res.status(500).json({ message: `Server error: Missing ${key}` });
+    }
+  }
+
+  // Validate request body
+  if (!firstName || !lastName || !email || !message) {
+    return res.status(400).json({
+      message: "Missing required fields: firstName, lastName, email, message",
+    });
+  }
+
+  // Validate email formats
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ message: `Invalid email format: ${email}` });
+  }
+  if (!isValidEmail(process.env.CONTACT_RECEIVER)) {
+    return res.status(400).json({
+      message: `Invalid recipient email: ${process.env.CONTACT_RECEIVER}`,
+    });
+  }
+  if (!isValidEmail(process.env.REPLY_TO_EMAIL)) {
+    return res.status(400).json({
+      message: `Invalid reply-to email: ${process.env.REPLY_TO_EMAIL}`,
+    });
+  }
+
   try {
-    const mailOptions = {
-      from: `"${firstName} ${lastName}" <${process.env.EMAIL_USER}>`,
-      to: process.env.CONTACT_RECEIVER,
+    const { data, error } = await resend.emails.send({
+      from: "New Lead!! <contact@asamoahassociates.com>",
+      to: [process.env.CONTACT_RECEIVER],
+      reply_to: process.env.REPLY_TO_EMAIL,
       subject: `New message from ${firstName} ${lastName}`,
       html: `
         <h3>New Contact Form Message</h3>
         <p><strong>From:</strong> ${firstName} ${lastName} (${email})</p>
         <p><strong>Message:</strong></p>
         <p>${message}</p>
+        <hr>
+        <small>This email was sent via Resend from your Render dev backend.</small>
+        <p><small>To reply, please respond to ${process.env.REPLY_TO_EMAIL}.</small></p>
       `,
-    };
+    });
 
-    // 3️⃣ Send email
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: "✅ Email sent successfully!" });
-    console.log("📧 Using Nodemailer to send email...");
+    if (error) {
+      if (error.statusCode === 403) {
+        return res.status(403).json({
+          message:
+            "API authentication failed (403). Check RESEND_API_KEY permissions.",
+          error: error.message,
+        });
+      }
+      if (error.statusCode === 422) {
+        return res.status(422).json({
+          message:
+            "Invalid email parameters. Check 'from', 'to', or 'reply_to' fields.",
+          error: error.message,
+        });
+      }
+      return res.status(500).json({
+        message: "Failed to send email",
+        error: error.message,
+      });
+    }
 
+    return res.status(200).json({
+      message: "Message sent successfully!",
+      emailId: data.id,
+    });
   } catch (error) {
-    console.error("❌ Email sending failed:", error);
-    res.status(500).json({ message: "❌ Failed to send email", error: error.message });
+    return res.status(500).json({
+      message: "Failed to send email due to an unexpected error",
+      error: error.message,
+    });
   }
 };
