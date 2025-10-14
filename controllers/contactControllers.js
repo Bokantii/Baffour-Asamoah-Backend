@@ -13,7 +13,6 @@ exports.sendContactMessage = async (req, res) => {
   const envVars = {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     CONTACT_RECEIVER: process.env.CONTACT_RECEIVER,
-    REPLY_TO_EMAIL: process.env.REPLY_TO_EMAIL,
   };
 
   for (const [key, value] of Object.entries(envVars)) {
@@ -38,17 +37,11 @@ exports.sendContactMessage = async (req, res) => {
       message: `Invalid recipient email: ${process.env.CONTACT_RECEIVER}`,
     });
   }
-  if (!isValidEmail(process.env.REPLY_TO_EMAIL)) {
-    return res.status(400).json({
-      message: `Invalid reply-to email: ${process.env.REPLY_TO_EMAIL}`,
-    });
-  }
 
   try {
     const { data, error } = await resend.emails.send({
       from: "New Lead!! <contact@asamoahassociates.com>",
       to: [process.env.CONTACT_RECEIVER],
-      reply_to: process.env.REPLY_TO_EMAIL,
       subject: `New message from ${firstName} ${lastName}`,
       html: `
         <h3>New Contact Form Message</h3>
@@ -57,7 +50,6 @@ exports.sendContactMessage = async (req, res) => {
         <p>${message}</p>
         <hr>
         <small>This email was sent via Resend from your Render dev backend.</small>
-        <p><small>To reply, please respond to ${process.env.REPLY_TO_EMAIL}.</small></p>
       `,
     });
 
@@ -71,8 +63,7 @@ exports.sendContactMessage = async (req, res) => {
       }
       if (error.statusCode === 422) {
         return res.status(422).json({
-          message:
-            "Invalid email parameters. Check 'from', 'to', or 'reply_to' fields.",
+          message: "Invalid email parameters. Check 'from' or 'to' fields.",
           error: error.message,
         });
       }
